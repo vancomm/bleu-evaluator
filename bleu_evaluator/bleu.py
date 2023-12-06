@@ -13,7 +13,7 @@ from nltk.util import ngrams
 logger = logging.getLogger(__name__)
 
 
-def modified_ngram_precision(
+def modified_ngram_precision_single(
     references: Sequence[Sequence[str]], candidate: Sequence[str], *, n: int
 ) -> Fraction:
     if n == 1:
@@ -54,7 +54,7 @@ def modified_ngram_precision(
     )
 
 
-def modified_precision(
+def modified_ngram_precision(
     references: Sequence[Sequence[str]], candidates: Sequence[Sequence[str]], *, n: int
 ) -> Fraction:
     if n == 1:
@@ -134,7 +134,9 @@ def bleu_score(
 
     logger.info(f"{r = }, {c = }, {brevity_penalty = }")
 
-    ps = [modified_precision(references, candidates, n=i) for i in range(1, n + 1)]
+    ps = [
+        modified_ngram_precision(references, candidates, n=i) for i in range(1, n + 1)
+    ]
 
     logger.info("ps = [%s]" % ", ".join(map(str, ps)))
 
