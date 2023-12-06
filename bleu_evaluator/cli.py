@@ -17,8 +17,10 @@ logger = logging.getLogger(__name__)
     type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
 )
 @click.argument(
-    "candidate_file",
+    "candidate_files",
+    metavar="[CANDIDATE_FILE]...",
     type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
+    nargs=-1,
 )
 @click.option(
     "-v",
@@ -26,8 +28,10 @@ logger = logging.getLogger(__name__)
     help="Verbosity level. May be repeated 1-3 times to increase verbosity.",
     count=True,
 )
-def cli(reference_file: pathlib.Path, candidate_file: pathlib.Path, verbose: int):
-    """Calculate BLEU metric using strings in REFERENCES_FILE and CANDIDATES_FILE."""
+def cli(
+    reference_file: pathlib.Path, candidate_files: tuple[pathlib.Path], verbose: int
+):
+    """Calculate BLEU metric for each CANDIDATE_FILE using REFERENCE_FILE."""
 
     if verbose == 0:
         log_level = logging.ERROR
@@ -43,16 +47,21 @@ def cli(reference_file: pathlib.Path, candidate_file: pathlib.Path, verbose: int
     else:
         setup_base_logging(level=log_level)
 
-    logger.debug(f"{reference_file = }, {candidate_file = }, {verbose = }")
+    if not candidate_files:
+        logger.error("No candidate files provided. Exiting.")
+        exit(1)
+
+    logger.debug(f"{reference_file = }, {candidate_files = }, {verbose = }")
 
     references = parse(reference_file)
-    candidates = parse(candidate_file)
+    candidates = list(map(parse, candidate_files))
 
-    score = bleu_score(
-        references,
-        candidates,
-        n=4,
-        smoothing_function=lambda fr: fr.numerator + 1e-10 / fr.denominator,
-    )
+    for candidate in candidates:
+        score = bleu_score(
+            references,
+            candidate,
+            n=4,
+            smoothing_function=lambda fr: fr.numerator + 1e-10 / fr.denominator,
+        )
 
-    print(score)
+        print(score)

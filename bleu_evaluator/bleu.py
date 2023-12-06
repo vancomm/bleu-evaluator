@@ -6,6 +6,7 @@ import math
 from typing import Callable
 
 import numpy as np
+from numpy.typing import NDArray
 import nltk.collocations as colloc
 from nltk.util import ngrams
 
@@ -14,7 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def modified_ngram_precision_single(
-    references: Sequence[Sequence[str]], candidate: Sequence[str], *, n: int
+    references: Sequence[Sequence[str]],
+    candidate: Sequence[str],
+    *,
+    n: int,
 ) -> Fraction:
     if n == 1:
         cand_counter = Counter(candidate)
@@ -55,11 +59,14 @@ def modified_ngram_precision_single(
 
 
 def modified_ngram_precision(
-    references: Sequence[Sequence[str]], candidates: Sequence[Sequence[str]], *, n: int
+    references: Sequence[Sequence[str]],
+    candidate_corpus: Sequence[Sequence[str]],
+    *,
+    n: int,
 ) -> Fraction:
     if n == 1:
         ref_counters = list(map(Counter, references))
-        cand_counters = list(map(Counter, candidates))
+        cand_counters = list(map(Counter, candidate_corpus))
         return Fraction(
             sum(
                 sum(
@@ -71,7 +78,7 @@ def modified_ngram_precision(
                 )
                 for cand_counter in cand_counters
             ),
-            sum(map(len, candidates)),
+            sum(map(len, candidate_corpus)),
         )
 
     if n == 2:
@@ -85,7 +92,7 @@ def modified_ngram_precision(
 
     ref_finders = list(map(finder_cls.from_words, references))
     sum_clipped = 0
-    for candidate in candidates:
+    for candidate in candidate_corpus:
         cand_finder = finder_cls.from_words(candidate)
         cand_ngrams = list(ngrams(candidate, n))
         sum_clipped += sum(
@@ -96,19 +103,26 @@ def modified_ngram_precision(
             for ngram in cand_ngrams
         )
 
-    return Fraction(sum_clipped, sum(map(len, candidates)))
+    return Fraction(sum_clipped, sum(map(len, candidate_corpus)))
+
+
+def find_best_matches_idx(
+    sources: NDArray[np.int_], targets: NDArray[np.int_]
+) -> NDArray[np.int_]:
+    source_matrix = np.tile(sources[:, np.newaxis], (1, len(targets)))
+    return np.absolute(source_matrix - targets.T).argmin(axis=1)
 
 
 def bleu_score(
     references: Sequence[Sequence[str]],
-    candidates: Sequence[Sequence[str]],
+    candidate_corpus: Sequence[Sequence[str]],
     *,
     n: int,
     weights: Sequence[float] | None = None,
     smoothing_function: Callable[[Fraction], float] | None = None,
 ) -> float:
     logger.info(f"{references = }")
-    logger.info(f"{candidates = }")
+    logger.info(f"{candidate_corpus = }")
 
     if n < 1 or n > 4:
         raise ValueError("n must be in range [1; 4]")
@@ -122,20 +136,18 @@ def bleu_score(
     logger.info(f"{weights = }")
 
     ref_lens = np.array(list(map(len, references)))
-    cand_lens = np.array(list(map(len, candidates)))
-    cand_lens = np.tile(cand_lens, (cand_lens.shape[0], ref_lens.shape[0]))
-    r = ref_lens[np.absolute(np.subtract(cand_lens, ref_lens)).argmin(axis=1)].sum()
-    c = sum(map(len, candidates))
+    cand_lens = np.array(list(map(len, candidate_corpus)))
+    best_len_matches_idx = find_best_matches_idx(cand_lens, ref_lens)
+    r = ref_lens[best_len_matches_idx].sum()
+    c = sum(map(len, candidate_corpus))
 
-    if c > r:
-        brevity_penalty = 1
-    else:
-        brevity_penalty = np.e ** (1 - r / c)
+    brevity_penalty = 1 if c > r else np.e ** (1 - r / c)
 
     logger.info(f"{r = }, {c = }, {brevity_penalty = }")
 
     ps = [
-        modified_ngram_precision(references, candidates, n=i) for i in range(1, n + 1)
+        modified_ngram_precision(references, candidate_corpus, n=i)
+        for i in range(1, n + 1)
     ]
 
     logger.info("ps = [%s]" % ", ".join(map(str, ps)))
