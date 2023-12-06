@@ -5,7 +5,7 @@ import click
 
 from .parse import parse
 from .bleu import bleu_score
-from .log import setup_base_logging
+from .log import setup_base_logging, FORMATS
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,10 @@ def cli(reference_file: pathlib.Path, candidate_file: pathlib.Path, verbose: int
     else:
         log_level = logging.DEBUG
 
-    setup_base_logging(level=log_level)
+    if log_level == logging.DEBUG:
+        setup_base_logging(level=log_level, format=FORMATS["debug"])
+    else:
+        setup_base_logging(level=log_level)
 
     logger.debug(f"{reference_file = }, {candidate_file = }, {verbose = }")
 

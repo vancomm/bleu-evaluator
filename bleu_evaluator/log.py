@@ -4,9 +4,10 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 
-LOGGING_FMT = (
-    "%(asctime)s | %(levelname)s: %(message)s @ %(name)s/%(funcName)s:%(lineno)d"
-)
+FORMATS = {
+    "default": "%(asctime)s | %(levelname)s: %(message)s",
+    "debug": "%(asctime)s | %(levelname)s: %(message)s @ %(name)s/%(funcName)s:%(lineno)d",
+}
 
 
 def format_logging_time(
@@ -20,9 +21,11 @@ def format_logging_time(
     )
 
 
-def setup_base_logging(*, level: int | str = logging.INFO):
+def setup_base_logging(
+    *, level: int | str = logging.INFO, format: str = FORMATS["default"]
+) -> None:
     logging.captureWarnings(capture=True)
-    logging.basicConfig(level=level, format=LOGGING_FMT)
+    logging.basicConfig(level=level, format=format)
     logging.Formatter.formatTime = (
         lambda self, record, datefmt=None: format_logging_time(record, datefmt)
     )
@@ -32,16 +35,17 @@ def setup_file_logging(
     logfile: Path,
     *,
     level: int | str = logging.INFO,
+    format: str = FORMATS["default"],
     backup_count: int = 10,
-    max_bytes: int = 5 * 1024 * 1024,
-):
+    max_bytes: int = 1 * 1024 * 1024,
+) -> None:
     fh = RotatingFileHandler(
         logfile,
         maxBytes=max_bytes,
         backupCount=backup_count,
     )
 
-    formatter = logging.Formatter(LOGGING_FMT)
+    formatter = logging.Formatter(format)
     formatter.formatTime = format_logging_time
 
     fh.setLevel(level)

@@ -107,8 +107,8 @@ def bleu_score(
     weights: Sequence[float] | None = None,
     smoothing_function: Callable[[Fraction], float] | None = None,
 ) -> float:
-    logger.debug(f"{references = }")
-    logger.debug(f"{candidates = }")
+    logger.info(f"{references = }")
+    logger.info(f"{candidates = }")
 
     if n < 1 or n > 4:
         raise ValueError("n must be in range [1; 4]")
@@ -147,7 +147,9 @@ def bleu_score(
         ps = map(smoothing_function, ps)
 
     s = math.fsum(w * math.log(p) for w, p in zip(weights, ps))
-    return brevity_penalty * math.exp(s)
+    score = brevity_penalty * math.exp(s)
+    logger.info(score)
+    return score
 
 
 def main():
