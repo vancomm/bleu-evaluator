@@ -10,13 +10,15 @@ from numpy.typing import NDArray
 import nltk.collocations as colloc
 from nltk.util import ngrams
 
+from .parse import Sentence, Corpus, Corpora
+
 
 logger = logging.getLogger(__name__)
 
 
-def modified_ngram_precision_single(
-    references: Sequence[Sequence[str]],
-    candidate: Sequence[str],
+def modified_ngram_precision_sentence(
+    references: Corpus,
+    candidate: Sentence,
     *,
     n: int,
 ) -> Fraction:
@@ -59,8 +61,8 @@ def modified_ngram_precision_single(
 
 
 def modified_ngram_precision(
-    references: Sequence[Sequence[str]],
-    candidate_corpus: Sequence[Sequence[str]],
+    references: Corpus,
+    candidate_corpus: Corpus,
     *,
     n: int,
 ) -> Fraction:
@@ -114,15 +116,15 @@ def find_best_matches_idx(
 
 
 def bleu_score(
-    references: Sequence[Sequence[str]],
-    candidate_corpus: Sequence[Sequence[str]],
+    references: Corpus,
+    candidate: Corpus,
     *,
     n: int,
     weights: Sequence[float] | None = None,
     smoothing_function: Callable[[Fraction], float] | None = None,
 ) -> float:
     logger.info(f"{references = }")
-    logger.info(f"{candidate_corpus = }")
+    logger.info(f"{candidate = }")
 
     if n < 1 or n > 4:
         raise ValueError("n must be in range [1; 4]")
@@ -136,19 +138,16 @@ def bleu_score(
     logger.info(f"{weights = }")
 
     ref_lens = np.array(list(map(len, references)))
-    cand_lens = np.array(list(map(len, candidate_corpus)))
+    cand_lens = np.array(list(map(len, candidate)))
     best_len_matches_idx = find_best_matches_idx(cand_lens, ref_lens)
     r = ref_lens[best_len_matches_idx].sum()
-    c = sum(map(len, candidate_corpus))
+    c = sum(map(len, candidate))
 
     brevity_penalty = 1 if c > r else np.e ** (1 - r / c)
 
     logger.info(f"{r = }, {c = }, {brevity_penalty = }")
 
-    ps = [
-        modified_ngram_precision(references, candidate_corpus, n=i)
-        for i in range(1, n + 1)
-    ]
+    ps = [modified_ngram_precision(references, candidate, n=i) for i in range(1, n + 1)]
 
     logger.info("ps = [%s]" % ", ".join(map(str, ps)))
 

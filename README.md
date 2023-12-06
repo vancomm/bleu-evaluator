@@ -25,3 +25,25 @@ or, if you used `pipx` to install:
 ```sh
 pipx uninstall bleu-evaluator
 ```
+
+## Usage
+
+```
+Usage: bleu [OPTIONS]
+
+  Calculate BLEU metric for each candidate in CANDIDATE file using references
+  found in REFERENCE files. One file may specify several references or
+  candidates by delimiting reference texts with an empty line (\n\n).
+
+  Supported FILE formats: doc, docx, txt. Other file extensions will be
+  treated as UTF-8 text.
+
+Options:
+  -r, --reference FILE  A file containing REFERENCE corpus. May be specified
+                        multiple times.
+  -c, --candidate FILE  A file containing CANDIDATE corpora. May be specified
+                        multiple times.
+  -v, --verbose         Verbosity level. May be repeated 1-3 times to increase
+                        verbosity.
+  --help                Show this message and exit.
+```

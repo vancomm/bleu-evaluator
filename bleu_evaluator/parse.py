@@ -34,8 +34,23 @@ def tokenize(
     ]
 
 
-def parse(file: pathlib.Path) -> list[list[str]]:
+Sentence = list[str]
+Corpus = list[Sentence]
+Corpora = list[Corpus]
+
+
+def parse_corpus(file: pathlib.Path) -> Corpus:
     read = reader_factory(file)
     corpus = read(file)
 
     return [tokenize(sent) for sent in nltk.sent_tokenize(corpus)]
+
+
+def parse_corpora(file: pathlib.Path) -> Corpora:
+    read = reader_factory(file)
+    corpora = read(file)
+
+    return [
+        [tokenize(sent) for sent in nltk.sent_tokenize(corpus)]
+        for corpus in corpora.split("\n\n")
+    ]
