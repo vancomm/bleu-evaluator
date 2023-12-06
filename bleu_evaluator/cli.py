@@ -3,56 +3,53 @@ import pathlib
 
 import click
 
-from .read import reader_factory
+from .parse import parse
+from .bleu import bleu_score
+from .log import setup_base_logging
 
 
 logger = logging.getLogger(__name__)
 
 
 @click.command
-@click.argument("reference", required=False)
-@click.argument("candidates", metavar="[CANDIDATE]...", required=False, nargs=-1)
-@click.option(
-    "-r",
-    "--reference-file",
-    help="File containing the reference string. Overrides REFERENCE argument",
+@click.argument(
+    "reference_file",
+    type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
+)
+@click.argument(
+    "candidate_file",
     type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
 )
 @click.option(
-    "-c",
-    "--candidates-file",
-    type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
-    help="File containing the candidate string. Overrides CANDIDATE arguments",
+    "-v",
+    "--verbose",
+    help="Verbosity level. May be repeated 1-3 times to increase verbosity.",
+    count=True,
 )
-def cli(
-    reference: str | None,
-    candidates: tuple[str],
-    reference_file: pathlib.Path | None,
-    candidates_file: pathlib.Path | None,
-):
-    """Calculate BLEU metric using provided REFERENCE and CANDIDATE strings."""
-    logger.debug(
-        f"{reference = }, {reference_file = }, {candidates = }, {candidates_file = }"
+def cli(reference_file: pathlib.Path, candidate_file: pathlib.Path, verbose: int):
+    """Calculate BLEU metric using strings in REFERENCES_FILE and CANDIDATES_FILE."""
+
+    if verbose == 0:
+        log_level = logging.ERROR
+    elif verbose == 1:
+        log_level = logging.WARNING
+    elif verbose == 2:
+        log_level = logging.INFO
+    else:
+        log_level = logging.DEBUG
+
+    setup_base_logging(level=log_level)
+
+    logger.debug(f"{reference_file = }, {candidate_file = }, {verbose = }")
+
+    references = parse(reference_file)
+    candidates = parse(candidate_file)
+
+    score = bleu_score(
+        references,
+        candidates,
+        n=4,
+        smoothing_function=lambda fr: fr.numerator + 1e-10 / fr.denominator,
     )
 
-    if not reference:
-        if not reference_file:
-            print("Error: reference required!")
-            exit(1)
-
-        reader = reader_factory(reference_file)
-        reference = reader(reference_file)
-
-        if not reference:
-            print(f"Error: reference string not found in {reference_file}!")
-            exit(1)
-
-    if not candidates:
-        if not candidates_file:
-            print("Error: at least one candidate required!")
-            exit(1)
-
-        reader = reader_factory(candidates_file)
-        candidates_text = reader(candidates_file)
-
-    print("Hello world!")
+    print(score)

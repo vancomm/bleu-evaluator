@@ -1,6 +1,8 @@
 import pathlib
+from collections.abc import Sequence
 from typing import Callable
 
+import nltk
 import docx2txt
 
 
@@ -20,3 +22,20 @@ def reader_factory(file: pathlib.Path) -> Callable[[pathlib.Path], str]:
             return read_text
         case _:
             return read_text
+
+
+def tokenize(
+    sentence: str, *, remove_chars: str | Sequence[str] = ".,;:-"
+) -> list[str]:
+    return [
+        word.lower()
+        for word in nltk.tokenize.word_tokenize(sentence)
+        if word not in remove_chars
+    ]
+
+
+def parse(file: pathlib.Path) -> list[list[str]]:
+    read = reader_factory(file)
+    corpus = read(file)
+
+    return [tokenize(sent) for sent in nltk.sent_tokenize(corpus)]
