@@ -5,13 +5,13 @@ A CLI utility that calculates [the BLEU metric](https://en.wikipedia.org/wiki/BL
 ## Installation
 
 ```sh
-pip install git+ssh://git@github.com/vancomm/bleu-evaluator.git
+pip install git+https://github.com/vancomm/bleu-evaluator.git
 ```
 
 If you are using Ubuntu, chances are you will have to use [`pipx`](https://pipx.pypa.io/stable/) instead of `pip`, otherwise the command is unchanged:
 
 ```sh
-pipx install git+ssh://git@github.com/vancomm/bleu-evaluator.git
+pipx install git+https://github.com/vancomm/bleu-evaluator.git
 ```
 
 ## Uninstallation
