@@ -99,7 +99,7 @@ def cli(
             references,
             candidate,
             n=4,
-            smoothing_function=lambda fr: fr.numerator + 1e-10 / fr.denominator,
+            smoothing_function=lambda fr: fr.numerator + 0.1 / fr.denominator,
         )
 
         print(score)

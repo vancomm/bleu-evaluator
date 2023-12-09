@@ -6,11 +6,11 @@ import math
 from typing import Callable
 
 import numpy as np
-from numpy.typing import NDArray
 import nltk.collocations as colloc
 from nltk.util import ngrams
 
 from .parse import Sentence, Corpus, Corpora
+from .utils import find_best_matches_idx
 
 
 logger = logging.getLogger(__name__)
@@ -106,13 +106,6 @@ def modified_ngram_precision(
         )
 
     return Fraction(sum_clipped, sum(map(len, candidate_corpus)))
-
-
-def find_best_matches_idx(
-    sources: NDArray[np.int_], targets: NDArray[np.int_]
-) -> NDArray[np.int_]:
-    source_matrix = np.tile(sources[:, np.newaxis], (1, len(targets)))
-    return np.absolute(source_matrix - targets.T).argmin(axis=1)
 
 
 def bleu_score(

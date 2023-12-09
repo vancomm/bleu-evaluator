@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from bleu_evaluator import bleu
+from bleu_evaluator import utils
 
 
 @pytest.mark.parametrize(
@@ -15,5 +15,5 @@ from bleu_evaluator import bleu
 def test_find_best_matches_idx(
     sources: list[int], targets: list[int], expected: list[int]
 ) -> None:
-    actual = bleu.find_best_matches_idx(np.array(sources), np.array(targets))
+    actual = utils.find_best_matches_idx(np.array(sources), np.array(targets))
     assert np.array_equal(actual, expected)
