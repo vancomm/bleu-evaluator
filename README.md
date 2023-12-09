@@ -1,6 +1,7 @@
 # BLEU Evaluator
 
-A CLI utility that calculates [the BLEU metric](https://en.wikipedia.org/wiki/BLEU) of a translated text.
+A CLI utility that calculates [the BLEU
+metric](https://en.wikipedia.org/wiki/BLEU) of a translated text.
 
 ## Installation
 
@@ -13,6 +14,8 @@ If you are using Ubuntu, chances are you will have to use [`pipx`](https://pipx.
 ```sh
 pipx install git+https://github.com/vancomm/bleu-evaluator.git
 ```
+
+**Note:** this script requires a subset (~50MB) of [NLTK data](https://www.nltk.org/data.html) to be present on your system. If automatic data discovery performed by NLTK package fails, script downloads required packages to the default directory (current user's home directory). To learn how to override this behaviour please consult NLTK documentation.
 
 ## Uninstallation
 
