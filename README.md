@@ -1,7 +1,6 @@
 # BLEU Evaluator
 
-A CLI utility that calculates [the BLEU
-metric](https://en.wikipedia.org/wiki/BLEU) of a translated text.
+A CLI utility that calculates [the BLEU score](https://aclanthology.org/P02-1040.pdf) of a translated text.
 
 ## Installation
 
@@ -9,7 +8,7 @@ metric](https://en.wikipedia.org/wiki/BLEU) of a translated text.
 pip install git+https://github.com/vancomm/bleu-evaluator.git
 ```
 
-If you are using Ubuntu, chances are you will have to use [`pipx`](https://pipx.pypa.io/stable/) instead of `pip`, otherwise the command is unchanged:
+If you are using Ubuntu 23.04 or newer, chances are you will have to use [`pipx`](https://pipx.pypa.io/stable/) instead of `pip`, otherwise the command is the same:
 
 ```sh
 pipx install git+https://github.com/vancomm/bleu-evaluator.git
@@ -34,19 +33,26 @@ pipx uninstall bleu-evaluator
 ```
 Usage: bleu [OPTIONS]
 
-  Calculate BLEU metric for each candidate in CANDIDATE file using references
-  found in REFERENCE files. One file may specify several references or
-  candidates by delimiting reference texts with an empty line (\n\n).
+  Calculate BLEU score for each hypothesis in HYPOTHESIS file using
+  references found in REFERENCE files. One file may specify several references
+  or hypotheses by delimiting items with empty lines.
 
   Supported FILE formats: doc, docx, txt. Other file extensions will be
   treated as UTF-8 text.
 
+  You can also supply references and hypotheses in interactive mode by
+  invoking the script without -r or -h options. You will be prompted for
+  missing data interactively. Alternatively, supply -i option to force
+  interactive prompt regardless of other options.
+
 Options:
-  -r, --reference FILE  A file containing REFERENCE corpus. May be specified
-                        multiple times.
-  -c, --candidate FILE  A file containing CANDIDATE corpora. May be specified
-                        multiple times.
-  -v, --verbose         Verbosity level. May be repeated 1-3 times to increase
-                        verbosity.
-  --help                Show this message and exit.
+  -r, --reference FILE   A file containing REFERENCE corpus. May be specified
+                         multiple times.
+  -h, --hypothesis FILE  A file containing HYPOTHESIS corpora. May be
+                         specified multiple times.
+  -i, --interactive      Force interactive prompting of references and
+                         hypotheses.
+  -v, --verbose          Verbosity level. May be repeated 1-3 times to
+                         increase verbosity.
+  --help                 Show this message and exit.
 ```

@@ -63,11 +63,11 @@ def cli(
     interactive: bool,
 ) -> None:
     """
-    Calculate BLEU metric for each hypothesis in HYPOTHESIS file using references
-    found in REFERENCE files. One file may specify several references or
+    Calculate BLEU score for each hypothesis in HYPOTHESIS file(s) using references
+    found in REFERENCE file(s). One file may specify several references or
     hypotheses by delimiting items with empty lines.
 
-    Supported FILE formats: doc, docx, txt. Other file extensions will be
+    Supported file formats: doc, docx, txt. Other file extensions will be
     treated as UTF-8 text.
 
     You can also supply references and hypotheses in interactive mode by invoking the
