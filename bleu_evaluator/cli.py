@@ -67,8 +67,8 @@ def cli(
     found in REFERENCE file(s). One file may specify several references or
     hypotheses by delimiting items with empty lines.
 
-    Supported file formats: doc, docx, txt. Other file extensions will be
-    treated as UTF-8 text.
+    Supported file formats: txt, doc, docx, pdf. Files with other extensions
+    will be treated as UTF-8 text.
 
     You can also supply references and hypotheses in interactive mode by invoking the
     script without -r or -h options. You will be prompted for missing data
