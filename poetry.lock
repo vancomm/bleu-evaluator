@@ -1437,6 +1437,24 @@ plugins = ["importlib-metadata"]
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
+name = "pypdf"
+version = "3.17.2"
+description = "A pure-python PDF library capable of splitting, merging, cropping, and transforming PDF files"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "pypdf-3.17.2-py3-none-any.whl", hash = "sha256:e149ed50aa41e04b176246714806cd8d6c6c6d68b528508f849642959041963a"},
+    {file = "pypdf-3.17.2.tar.gz", hash = "sha256:d6f077060912f8292d7db3da04f7bf2428ac974781e11eef219193a22120f649"},
+]
+
+[package.extras]
+crypto = ["PyCryptodome", "cryptography"]
+dev = ["black", "flit", "pip-tools", "pre-commit (<2.18.0)", "pytest-cov", "pytest-socket", "pytest-timeout", "pytest-xdist", "wheel"]
+docs = ["myst_parser", "sphinx", "sphinx_rtd_theme"]
+full = ["Pillow (>=8.0.0)", "PyCryptodome", "cryptography"]
+image = ["Pillow (>=8.0.0)"]
+
+[[package]]
 name = "pytest"
 version = "7.4.3"
 description = "pytest: simple powerful testing with Python"
@@ -2224,4 +2242,4 @@ test = ["websockets"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "26ec373b1c10cf9381a30bb490abe250e8a75bc9d873cb354381a1fabcdf3bfd"
+content-hash = "39cecbf85ff4d255387b0943a708b6cd056d0459cf8face27debcb6e56cdad30"

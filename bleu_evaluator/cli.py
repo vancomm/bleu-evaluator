@@ -4,7 +4,9 @@ import pathlib
 import click
 from click.exceptions import UsageError
 
-from .parse import parse_corpus, parse_corpora
+from bleu_evaluator.utils import flattened
+
+from .parse import BaseParser, get_parser
 from .bleu import bleu_score
 from .log import setup_base_logging, FORMATS
 
@@ -12,12 +14,12 @@ from .log import setup_base_logging, FORMATS
 logger = logging.getLogger(__name__)
 
 
-def calculate_verbosity(verbose: int) -> int:
-    if verbose == 0:
+def calculate_log_level(verbosity: int) -> int:
+    if verbosity == 0:
         return logging.ERROR
-    elif verbose == 1:
+    elif verbosity == 1:
         return logging.WARNING
-    elif verbose == 2:
+    elif verbosity == 2:
         return logging.INFO
     else:
         return logging.DEBUG
@@ -33,73 +35,93 @@ def calculate_verbosity(verbose: int) -> int:
     multiple=True,
 )
 @click.option(
-    "-c",
-    "--candidate",
-    "candidate_files",
-    help="A file containing CANDIDATE corpora. May be specified multiple times.",
+    "-h",
+    "--hypothesis",
+    "hypothesis_files",
+    help="A file containing HYPOTHESIS corpora. May be specified multiple times.",
     type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
     multiple=True,
 )
 @click.option(
+    "-i",
+    "--interactive",
+    help="Force interactive prompting of references and hypotheses.",
+    is_flag=True,
+    default=False,
+)
+@click.option(
     "-v",
     "--verbose",
+    "verbosity",
     help="Verbosity level. May be repeated 1-3 times to increase verbosity.",
     count=True,
 )
 def cli(
     reference_files: tuple[pathlib.Path],
-    candidate_files: tuple[pathlib.Path],
-    verbose: int,
+    hypothesis_files: tuple[pathlib.Path],
+    verbosity: int,
+    interactive: bool,
 ) -> None:
     """
-    Calculate BLEU metric for each candidate in CANDIDATE file using references
+    Calculate BLEU metric for each hypothesis in HYPOTHESIS file using references
     found in REFERENCE files. One file may specify several references or
-    candidates by delimiting reference texts with an empty line (\\n\\n).
+    hypotheses by delimiting items with empty lines.
 
     Supported FILE formats: doc, docx, txt. Other file extensions will be
     treated as UTF-8 text.
+
+    You can also supply references and hypotheses in interactive mode by invoking the
+    script without -r or -h options. You will be prompted for missing data
+    interactively. Alternatively, supply -i option to force interactive prompt
+    regardless of other options.
     """
 
-    log_level = calculate_verbosity(verbose)
+    log_level = calculate_log_level(verbosity)
 
     if log_level == logging.DEBUG:
         setup_base_logging(level=log_level, format=FORMATS["debug"])
     else:
         setup_base_logging(level=log_level)
 
-    if not reference_files:
-        raise UsageError("No reference files provided. Exiting.")
+    references: list[list[str]] = []
+    hypotheses: list[list[list[str]]] = []
 
-    if not candidate_files:
-        raise UsageError("No reference files provided. Exiting.")
+    references.extend(
+        flattened(p.to_corpus() for p in map(get_parser, reference_files))
+    )
+    hypotheses.extend(
+        flattened(p.to_corpora() for p in map(get_parser, hypothesis_files))
+    )
 
-    logger.debug(f"{reference_files = }, {candidate_files = }, {verbose = }")
+    if not references or interactive:
+        ask_again = True
+        while ask_again:
+            value = click.prompt(
+                "Please enter a reference translation (newlines not allowed)",
+                prompt_suffix=":\n> ",
+            )
+            references.extend(BaseParser.parse_corpus(value))
+            ask_again = click.confirm("Do you want to add another reference?")
 
-    # data/
-    #   refs1.txt
-    #     - ref_1
-    #     - ref_2
-    #   refs2.txt
-    #     - ref_3
-    #   cands_1.txt
-    #     - cand1
-    #   cands_2.txt
-    #     - cand2
-    #     - cand3
-    #
-    # bleu -r refs_1.txt -r refs_2.txt -c cands_1.txt -c cands_2.txt
-    #   => [[ref_1, ref_2], ref_3], [[cand1], [cand2, cand3]]
-    #   => [ref_1, ref_2, ref_3], [cand1, cand2, cand3]
+    if not hypotheses or interactive:
+        ask_again = True
+        while ask_again:
+            value = click.prompt(
+                "Please enter a hypothesis (newlines not allowed)",
+                prompt_suffix=":\n> ",
+            )
+            hypotheses.append(BaseParser.parse_corpus(value))
+            ask_again = click.confirm("Do you want to add another hypothesis?")
 
-    references = [s for l in map(parse_corpus, reference_files) for s in l]
-    candidates = [s for l in map(parse_corpora, candidate_files) for s in l]
+    logging.info("BLEU calculation initiated")
 
-    for candidate in candidates:
+    for hypothesis in hypotheses:
         score = bleu_score(
             references,
-            candidate,
+            hypothesis,
             n=4,
             smoothing_function=lambda fr: fr.numerator + 0.1 / fr.denominator,
         )
+        click.echo(score)
 
-        print(score)
+    logging.info("BLEU calculation complete")

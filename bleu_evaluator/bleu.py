@@ -9,7 +9,6 @@ import numpy as np
 import nltk.collocations as colloc
 from nltk.util import ngrams
 
-from .parse import Sentence, Corpus, Corpora
 from .utils import find_best_matches_idx
 
 
@@ -17,23 +16,23 @@ logger = logging.getLogger(__name__)
 
 
 def modified_ngram_precision_sentence(
-    references: Corpus,
-    candidate: Sentence,
+    references: list[list[str]],
+    hypothesis: list[str],
     *,
     n: int,
 ) -> Fraction:
     if n == 1:
-        cand_counter = Counter(candidate)
+        hyp_counter = Counter(hypothesis)
         ref_counters = list(map(Counter, references))
         return Fraction(
             sum(
                 min(
-                    cand_counter[word],
+                    hyp_counter[word],
                     max(ref_counter.get(word, 0) for ref_counter in ref_counters),
                 )
-                for word in cand_counter
+                for word in hyp_counter
             ),
-            len(candidate),
+            len(hypothesis),
         )
 
     if n == 2:
@@ -45,42 +44,42 @@ def modified_ngram_precision_sentence(
     else:
         raise ValueError("n must be in range [1; 4]")
 
-    cand_finder = finder_cls.from_words(candidate)
-    cand_ngrams = list(ngrams(candidate, n))
+    finder = finder_cls.from_words(hypothesis)
+    hyp_ngrams = list(ngrams(hypothesis, n))
     ref_finders = list(map(finder_cls.from_words, references))
     return Fraction(
         sum(
             min(
-                cand_finder.ngram_fd[ngram],
+                finder.ngram_fd[ngram],
                 max(ref_finder.ngram_fd[ngram] for ref_finder in ref_finders),
             )
-            for ngram in cand_ngrams
+            for ngram in hyp_ngrams
         ),
-        len(cand_ngrams),
+        len(hyp_ngrams),
     )
 
 
 def modified_ngram_precision(
-    references: Corpus,
-    candidate_corpus: Corpus,
+    references: list[list[str]],
+    hypothesis: list[list[str]],
     *,
     n: int,
 ) -> Fraction:
     if n == 1:
         ref_counters = list(map(Counter, references))
-        cand_counters = list(map(Counter, candidate_corpus))
+        hyp_counters = list(map(Counter, hypothesis))
         return Fraction(
             sum(
                 sum(
                     min(
-                        cand_counter[word],
+                        hyp_counter[word],
                         max(ref_counter.get(word, 0) for ref_counter in ref_counters),
                     )
-                    for word in cand_counter
+                    for word in hyp_counter
                 )
-                for cand_counter in cand_counters
+                for hyp_counter in hyp_counters
             ),
-            sum(map(len, candidate_corpus)),
+            sum(map(len, hypothesis)),
         )
 
     if n == 2:
@@ -94,30 +93,30 @@ def modified_ngram_precision(
 
     ref_finders = list(map(finder_cls.from_words, references))
     sum_clipped = 0
-    for candidate in candidate_corpus:
-        cand_finder = finder_cls.from_words(candidate)
-        cand_ngrams = list(ngrams(candidate, n))
+    for sentence in hypothesis:
+        finder = finder_cls.from_words(sentence)
+        sent_ngrams = list(ngrams(sentence, n))
         sum_clipped += sum(
             min(
-                cand_finder.ngram_fd[ngram],
+                finder.ngram_fd[ngram],
                 max(ref_finder.ngram_fd[ngram] for ref_finder in ref_finders),
             )
-            for ngram in cand_ngrams
+            for ngram in sent_ngrams
         )
 
-    return Fraction(sum_clipped, sum(map(len, candidate_corpus)))
+    return Fraction(sum_clipped, sum(map(len, hypothesis)))
 
 
 def bleu_score(
-    references: Corpus,
-    candidate: Corpus,
+    references: list[list[str]],
+    hypothesis: list[list[str]],
     *,
     n: int,
     weights: Sequence[float] | None = None,
     smoothing_function: Callable[[Fraction], float] | None = None,
 ) -> float:
     logger.info(f"{references = }")
-    logger.info(f"{candidate = }")
+    logger.info(f"{hypothesis = }")
 
     if n < 1 or n > 4:
         raise ValueError("n must be in range [1; 4]")
@@ -131,25 +130,29 @@ def bleu_score(
     logger.info(f"{weights = }")
 
     ref_lens = np.array(list(map(len, references)))
-    cand_lens = np.array(list(map(len, candidate)))
-    best_len_matches_idx = find_best_matches_idx(cand_lens, ref_lens)
+    hyp_lens = np.array(list(map(len, hypothesis)))
+    best_len_matches_idx = find_best_matches_idx(hyp_lens, ref_lens)
     r = ref_lens[best_len_matches_idx].sum()
-    c = sum(map(len, candidate))
+    c = sum(map(len, hypothesis))
 
     brevity_penalty = 1 if c > r else np.e ** (1 - r / c)
 
     logger.info(f"{r = }, {c = }, {brevity_penalty = }")
 
-    ps = [modified_ngram_precision(references, candidate, n=i) for i in range(1, n + 1)]
+    ps = [
+        modified_ngram_precision(references, hypothesis, n=i) for i in range(1, n + 1)
+    ]
 
     logger.info("ps = [%s]" % ", ".join(map(str, ps)))
 
     if not all(ps):
         if not smoothing_function:
             raise ValueError(
-                "modified precision score of zero detected with no smoothing function"
+                "precision score of zero detected with no smoothing function"
             )
-        logging.warning("modified precision score of zero detected - smoothing enabled")
+        logging.warning(
+            "precision score of zero detected - applying a smoothing function"
+        )
         ps = map(smoothing_function, ps)
 
     s = math.fsum(w * math.log(p) for w, p in zip(weights, ps))

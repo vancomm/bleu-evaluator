@@ -1,7 +1,7 @@
 def main():
     from collections.abc import Sequence
 
-    from .parse import tokenize
+    from .parse import BaseParser
     from .bleu import bleu_score
 
     example_1 = (
@@ -24,8 +24,8 @@ def main():
     examples: Sequence[tuple[Sequence[str], Sequence[str]]] = (example_1, example_2)
 
     for candidates, references in examples:
-        references = list(map(tokenize, references))
-        for candidate in map(tokenize, candidates):
+        references = list(map(BaseParser.word_tokenize, references))
+        for candidate in map(BaseParser.word_tokenize, candidates):
             bleu = bleu_score(
                 references,
                 [candidate],
