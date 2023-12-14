@@ -1,163 +1,90 @@
-import logging
-from collections import Counter
-from collections.abc import Sequence
-from fractions import Fraction
 import math
-from typing import Callable
+import logging
+import operator
+import functools
+import itertools
+from dataclasses import dataclass
 
-import numpy as np
-import nltk.collocations as colloc
-from nltk.util import ngrams
-
-from .utils import find_best_matches_idx
+from .utils import RefStats, HypothesisStats, floor_log, sent_tokenize
 
 
 logger = logging.getLogger(__name__)
 
 
-def modified_ngram_precision_sentence(
-    references: list[list[str]],
-    hypothesis: list[str],
-    *,
-    n: int,
-) -> Fraction:
-    if n == 1:
-        hyp_counter = Counter(hypothesis)
-        ref_counters = list(map(Counter, references))
-        return Fraction(
-            sum(
-                min(
-                    hyp_counter[word],
-                    max(ref_counter.get(word, 0) for ref_counter in ref_counters),
-                )
-                for word in hyp_counter
+@dataclass
+class BLEUScore:
+    score: float
+    precisions: list[float]
+    correct: list[int]
+    total: list[int]
+    bp: float
+    hyp_len: int
+    ref_len: int
+
+    def __post_init__(self) -> None:
+        precisions_str = "/".join(f"{p:.1f}" for p in self.precisions)
+        ratio = self.hyp_len / self.ref_len
+        self.verbose = (
+            f"{precisions_str} (BP = {self.bp:.3f}, "
+            f"ratio = {ratio:.3f}, hyp_len = {self.hyp_len}, ref_len = {self.ref_len})"
+        )
+
+    def format(self, *, width: int = 2, verbose: bool = False) -> str:
+        text = f"BLEU = {self.score:.{width}f}"
+        if verbose:
+            text = "%s %s" % (text, self.verbose)
+        return text
+
+
+class BLEU:
+    ref_cache: list[RefStats]
+
+    def __init__(self, references: list[str]) -> None:
+        assert (
+            len(set(map(len, references))) == 1
+        ), "all references must have the same number of sentences"
+
+        self.ref_cache = list(
+            map(RefStats.compute, zip(*map(sent_tokenize, references)))
+        )
+
+    @staticmethod
+    def _compute_bleu(stats: HypothesisStats) -> BLEUScore:
+        precisions = [float()] * 4
+        for n in range(0, 4):
+            if stats.total[n] == 0:
+                continue
+            precisions[n] = 100.0 * stats.correct[n] / stats.total[n]
+
+        if stats.hyp_len > stats.ref_len:
+            bp = 1.0
+        else:
+            bp = math.exp(1 - stats.ref_len / stats.hyp_len)
+
+        score = bp * math.exp(sum(floor_log(p) for p in precisions) / 4)
+
+        return BLEUScore(
+            score=score,
+            precisions=precisions,
+            correct=stats.correct,
+            total=stats.total,
+            bp=bp,
+            hyp_len=stats.hyp_len,
+            ref_len=stats.ref_len,
+        )
+
+    def corpus_score(self, hypothesis: str) -> BLEUScore:
+        sentences = sent_tokenize(hypothesis)
+        assert len(sentences) == len(
+            self.ref_cache
+        ), "number of hypothesis sentences must be the same as number of reference sentences"
+
+        stats = functools.reduce(
+            operator.add,
+            itertools.starmap(
+                HypothesisStats.compute,
+                zip(sentences, self.ref_cache),
             ),
-            len(hypothesis),
         )
 
-    if n == 2:
-        finder_cls = colloc.BigramCollocationFinder
-    elif n == 3:
-        finder_cls = colloc.TrigramCollocationFinder
-    elif n == 4:
-        finder_cls = colloc.QuadgramCollocationFinder
-    else:
-        raise ValueError("n must be in range [1; 4]")
-
-    finder = finder_cls.from_words(hypothesis)
-    hyp_ngrams = list(ngrams(hypothesis, n))
-    ref_finders = list(map(finder_cls.from_words, references))
-    return Fraction(
-        sum(
-            min(
-                finder.ngram_fd[ngram],
-                max(ref_finder.ngram_fd[ngram] for ref_finder in ref_finders),
-            )
-            for ngram in hyp_ngrams
-        ),
-        len(hyp_ngrams),
-    )
-
-
-def modified_ngram_precision(
-    references: list[list[str]],
-    hypothesis: list[list[str]],
-    *,
-    n: int,
-) -> Fraction:
-    if n == 1:
-        ref_counters = list(map(Counter, references))
-        hyp_counters = list(map(Counter, hypothesis))
-        return Fraction(
-            sum(
-                sum(
-                    min(
-                        hyp_counter[word],
-                        max(ref_counter.get(word, 0) for ref_counter in ref_counters),
-                    )
-                    for word in hyp_counter
-                )
-                for hyp_counter in hyp_counters
-            ),
-            sum(map(len, hypothesis)),
-        )
-
-    if n == 2:
-        finder_cls = colloc.BigramCollocationFinder
-    elif n == 3:
-        finder_cls = colloc.TrigramCollocationFinder
-    elif n == 4:
-        finder_cls = colloc.QuadgramCollocationFinder
-    else:
-        raise ValueError("n must be in range [1; 4]")
-
-    ref_finders = list(map(finder_cls.from_words, references))
-    sum_clipped = 0
-    for sentence in hypothesis:
-        finder = finder_cls.from_words(sentence)
-        sent_ngrams = list(ngrams(sentence, n))
-        sum_clipped += sum(
-            min(
-                finder.ngram_fd[ngram],
-                max(ref_finder.ngram_fd[ngram] for ref_finder in ref_finders),
-            )
-            for ngram in sent_ngrams
-        )
-
-    return Fraction(sum_clipped, sum(map(len, hypothesis)))
-
-
-def bleu_score(
-    references: list[list[str]],
-    hypothesis: list[list[str]],
-    *,
-    n: int,
-    weights: Sequence[float] | None = None,
-    smoothing_function: Callable[[Fraction], float] | None = None,
-) -> float:
-    logger.info(f"{references = }")
-    logger.info(f"{hypothesis = }")
-
-    if n < 1 or n > 4:
-        raise ValueError("n must be in range [1; 4]")
-
-    if weights and len(weights) != n:
-        raise ValueError(f"weights array must be of length {n = }")
-
-    if not weights:
-        weights = [1 / n] * n
-
-    logger.info(f"{weights = }")
-
-    ref_lens = np.array(list(map(len, references)))
-    hyp_lens = np.array(list(map(len, hypothesis)))
-    best_len_matches_idx = find_best_matches_idx(hyp_lens, ref_lens)
-    r = ref_lens[best_len_matches_idx].sum()
-    c = sum(map(len, hypothesis))
-
-    brevity_penalty = 1 if c > r else np.e ** (1 - r / c)
-
-    logger.info(f"{r = }, {c = }, {brevity_penalty = }")
-
-    ps = [
-        modified_ngram_precision(references, hypothesis, n=i) for i in range(1, n + 1)
-    ]
-
-    logger.info("ps = [%s]" % ", ".join(map(str, ps)))
-
-    if not all(ps):
-        if not smoothing_function:
-            raise ValueError(
-                "precision score of zero detected with no smoothing function"
-            )
-        logging.warning(
-            "precision score of zero detected - applying a smoothing function"
-        )
-        ps = map(smoothing_function, ps)
-
-    s = math.fsum(w * math.log(p) for w, p in zip(weights, ps))
-    score = brevity_penalty * math.exp(s)
-
-    logger.info(f"{score = }")
-
-    return score
+        return self._compute_bleu(stats)

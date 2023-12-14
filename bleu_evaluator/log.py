@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 
-FORMATS = {
+LOG_FORMATS = {
     "default": "%(asctime)s | %(levelname)s: %(message)s",
     "debug": "%(asctime)s | %(levelname)s: %(message)s @ %(name)s/%(funcName)s:%(lineno)d",
 }
@@ -22,7 +22,7 @@ def format_logging_time(
 
 
 def setup_base_logging(
-    *, level: int | str = logging.INFO, format: str = FORMATS["default"]
+    *, level: int | str = logging.INFO, format: str = LOG_FORMATS["default"]
 ) -> None:
     logging.captureWarnings(capture=True)
     logging.basicConfig(level=level, format=format)
@@ -35,7 +35,7 @@ def setup_file_logging(
     logfile: Path,
     *,
     level: int | str = logging.INFO,
-    format: str = FORMATS["default"],
+    format: str = LOG_FORMATS["default"],
     backup_count: int = 10,
     max_bytes: int = 1 * 1024 * 1024,
 ) -> None:

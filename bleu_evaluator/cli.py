@@ -1,14 +1,12 @@
+import time
 import logging
 import pathlib
 
 import click
-from click.exceptions import UsageError
 
-from bleu_evaluator.utils import flattened
-
-from .parse import BaseParser, get_parser
-from .bleu import bleu_score
-from .log import setup_base_logging, FORMATS
+from .parse import get_parser
+from .bleu import BLEU
+from .log import setup_base_logging, LOG_FORMATS
 
 
 logger = logging.getLogger(__name__)
@@ -75,23 +73,15 @@ def cli(
     interactively. Alternatively, supply -i option to force interactive prompt
     regardless of other options.
     """
-
     log_level = calculate_log_level(verbosity)
+    log_format = "debug" if log_level == logging.DEBUG else "default"
+    setup_base_logging(level=log_level, format=LOG_FORMATS[log_format])
 
-    if log_level == logging.DEBUG:
-        setup_base_logging(level=log_level, format=FORMATS["debug"])
-    else:
-        setup_base_logging(level=log_level)
+    start = time.perf_counter()
+    logger.info("CLI invoked")
 
-    references: list[list[str]] = []
-    hypotheses: list[list[list[str]]] = []
-
-    references.extend(
-        flattened(p.to_corpus() for p in map(get_parser, reference_files))
-    )
-    hypotheses.extend(
-        flattened(p.to_corpora() for p in map(get_parser, hypothesis_files))
-    )
+    references = [get_parser(file).read_all() for file in reference_files]
+    hypotheses = [get_parser(file).read_all() for file in hypothesis_files]
 
     if not references or interactive:
         ask_again = True
@@ -100,7 +90,7 @@ def cli(
                 "Please enter a reference translation (newlines not allowed)",
                 prompt_suffix=":\n> ",
             )
-            references.extend(BaseParser.parse_corpus(value))
+            references.extend(value)
             ask_again = click.confirm("Do you want to add another reference?")
 
     if not hypotheses or interactive:
@@ -110,18 +100,18 @@ def cli(
                 "Please enter a hypothesis (newlines not allowed)",
                 prompt_suffix=":\n> ",
             )
-            hypotheses.append(BaseParser.parse_corpus(value))
+            hypotheses.append(value)
             ask_again = click.confirm("Do you want to add another hypothesis?")
 
     logging.info("BLEU calculation initiated")
 
+    bleu = BLEU(references)
+
     for hypothesis in hypotheses:
-        score = bleu_score(
-            references,
-            hypothesis,
-            n=4,
-            smoothing_function=lambda fr: fr.numerator + 0.1 / fr.denominator,
-        )
-        click.echo(score)
+        score = bleu.corpus_score(hypothesis)
+        click.echo(score.format(verbose=True))
 
     logging.info("BLEU calculation complete")
+
+    end = time.perf_counter()
+    logger.info(f"CLI workflow complete, time elapsed = {end - start:.3f}ms")
