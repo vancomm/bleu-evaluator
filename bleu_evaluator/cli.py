@@ -4,7 +4,7 @@ import pathlib
 
 import click
 
-from .parse import get_parser
+from .read import get_reader
 from .bleu import BLEU
 from .log import setup_base_logging, LOG_FORMATS
 
@@ -80,8 +80,8 @@ def cli(
     start = time.perf_counter()
     logger.info("CLI invoked")
 
-    references = [get_parser(file).read_all() for file in reference_files]
-    hypotheses = [get_parser(file).read_all() for file in hypothesis_files]
+    references = [get_reader(file).read_all() for file in reference_files]
+    hypotheses = [get_reader(file).read_all() for file in hypothesis_files]
 
     if not references or interactive:
         ask_again = True

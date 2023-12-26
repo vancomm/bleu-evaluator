@@ -7,7 +7,7 @@ import pypdf
 
 
 @dataclass
-class BaseParser(abc.ABC):
+class BaseReader(abc.ABC):
     file: Path
 
     @abc.abstractmethod
@@ -15,30 +15,30 @@ class BaseParser(abc.ABC):
         ...
 
 
-class PlainTextParser(BaseParser):
+class PlainTextReader(BaseReader):
     def read_all(self) -> str:
         return self.file.read_text()
 
 
-class DocParser(BaseParser):
+class DocReader(BaseReader):
     def read_all(self) -> str:
         return docx2txt.process(self.file)
 
 
-class PdfParser(BaseParser):
+class PdfReader(BaseReader):
     def read_all(self) -> str:
         reader = pypdf.PdfReader(self.file)
         text = "".join(page.extract_text() for page in reader.pages)
         return text
 
 
-def get_parser(file: Path) -> BaseParser:
+def get_reader(file: Path) -> BaseReader:
     match file.suffix.lower():
         case ".txt":
-            return PlainTextParser(file)
+            return PlainTextReader(file)
         case ".doc" | ".docx":
-            return DocParser(file)
+            return DocReader(file)
         case ".pdf":
-            return PdfParser(file)
+            return PdfReader(file)
         case _:
-            return PlainTextParser(file)
+            return PlainTextReader(file)
