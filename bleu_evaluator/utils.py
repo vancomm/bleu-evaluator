@@ -3,10 +3,12 @@ from operator import add
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Self, TypeVar
+from typing import TypeVar
 
 import nltk
 import numpy as np
+
+from .compat import Self
 
 
 T = TypeVar("T")

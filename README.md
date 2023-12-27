@@ -4,6 +4,10 @@ A CLI utility that calculates [the BLEU score](https://aclanthology.org/P02-1040
 
 ## Installation
 
+Requires Python 3.10+.
+
+You can clone this Git repository and run `pip install .` or install it from GitHub directly:
+
 ```sh
 pip install git+https://github.com/vancomm/bleu-evaluator.git
 ```

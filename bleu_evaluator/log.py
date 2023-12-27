@@ -26,7 +26,7 @@ def setup_base_logging(
 ) -> None:
     logging.captureWarnings(capture=True)
     logging.basicConfig(level=level, format=format)
-    logging.Formatter.formatTime = (
+    logging.Formatter.formatTime = (  # type: ignore[method-assign]
         lambda self, record, datefmt=None: format_logging_time(record, datefmt)
     )
 
@@ -46,7 +46,7 @@ def setup_file_logging(
     )
 
     formatter = logging.Formatter(format)
-    formatter.formatTime = format_logging_time
+    formatter.formatTime = format_logging_time  # type: ignore[method-assign]
 
     fh.setLevel(level)
     fh.setFormatter(formatter)

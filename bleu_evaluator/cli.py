@@ -6,24 +6,13 @@ import click
 
 from .read import get_reader
 from .bleu import BLEU
-from .log import setup_base_logging, LOG_FORMATS
+from .log import setup_base_logging, LOG_FORMATS, setup_file_logging
 
 
 logger = logging.getLogger(__name__)
 
 
-def calculate_log_level(verbosity: int) -> int:
-    if verbosity == 0:
-        return logging.ERROR
-    elif verbosity == 1:
-        return logging.WARNING
-    elif verbosity == 2:
-        return logging.INFO
-    else:
-        return logging.DEBUG
-
-
-@click.command
+@click.command()
 @click.option(
     "-r",
     "--reference",
@@ -48,16 +37,23 @@ def calculate_log_level(verbosity: int) -> int:
     default=False,
 )
 @click.option(
+    "-l",
+    "--log-file",
+    help="A file to write logs to.",
+    type=click.Path(exists=False, path_type=pathlib.Path),
+)
+@click.option(
     "-v",
     "--verbose",
-    "verbosity",
-    help="Verbosity level. May be repeated 1-3 times to increase verbosity.",
-    count=True,
+    "verbose",
+    help="Increase logging verbosity.",
 )
+@click.version_option(message="%(version)s")
 def cli(
     reference_files: tuple[pathlib.Path],
     hypothesis_files: tuple[pathlib.Path],
-    verbosity: int,
+    verbose: bool,
+    log_file: pathlib.Path | None,
     interactive: bool,
 ) -> None:
     """
@@ -73,9 +69,13 @@ def cli(
     interactively. Alternatively, supply -i option to force interactive prompt
     regardless of other options.
     """
-    log_level = calculate_log_level(verbosity)
-    log_format = "debug" if log_level == logging.DEBUG else "default"
-    setup_base_logging(level=log_level, format=LOG_FORMATS[log_format])
+
+    if log_file:
+        log_level = logging.DEBUG if verbose else logging.INFO
+        log_format = "debug" if verbose else "default"
+        setup_file_logging(
+            logfile=log_file, level=log_level, format=LOG_FORMATS[log_format]
+        )
 
     start = time.perf_counter()
     logger.info("CLI invoked")
@@ -90,7 +90,7 @@ def cli(
                 "Please enter a reference translation (newlines not allowed)",
                 prompt_suffix=":\n> ",
             )
-            references.extend(value)
+            references.append(value)
             ask_again = click.confirm("Do you want to add another reference?")
 
     if not hypotheses or interactive:
@@ -103,13 +103,23 @@ def cli(
             hypotheses.append(value)
             ask_again = click.confirm("Do you want to add another hypothesis?")
 
+    logger.debug(f"{references = }")
+    logger.debug(f"{hypotheses = }")
+
     logging.info("BLEU calculation initiated")
 
     bleu = BLEU(references)
 
     for hypothesis in hypotheses:
-        score = bleu.corpus_score(hypothesis)
-        click.echo(score.format(verbose=True))
+        try:
+            score = bleu.corpus_score(hypothesis)
+            click.echo(score.format(verbose=True))
+        except click.ClickException as e:
+            logger.error(e)
+            raise e
+        except Exception as e:
+            logger.error(e)
+            raise click.ClickException(str(e))
 
     logging.info("BLEU calculation complete")
 
