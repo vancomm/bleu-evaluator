@@ -3,12 +3,86 @@ import logging
 import operator
 import functools
 import itertools
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
+from collections.abc import Sequence
 
-from .utils import RefStats, HypothesisStats, floor_log, sent_tokenize
+from .utils import (
+    floor_log,
+    sent_tokenize,
+    word_tokenize,
+    extract_ngrams,
+    get_closest_len,
+)
+from .compat import Self
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RefStats:
+    lens: list[int] = field(default_factory=list)
+    ngrams: Counter[tuple[str, ...]] = field(default_factory=Counter)
+
+    @classmethod
+    def compute(cls, refs: Sequence[str]) -> Self:
+        stats = cls()
+
+        for ref in refs:
+            tokens = word_tokenize(ref)
+            stats.lens.append(len(tokens))
+            sent_ngrams = extract_ngrams(tokens, 1, 4)
+            if not stats.ngrams:
+                stats.ngrams = sent_ngrams
+            else:
+                for ngram, count in sent_ngrams.items():
+                    stats.ngrams[ngram] = max(stats.ngrams[ngram], count)
+
+        return stats
+
+
+@dataclass
+class HypothesisStats:
+    hyp_len: int
+    ref_len: int
+    correct: list[int]
+    total: list[int]
+
+    @classmethod
+    def compute(cls, sentence: str, ref_stats: RefStats) -> Self:
+        hyp_tokens = word_tokenize(sentence)
+        hyp_ngram_counts = extract_ngrams(hyp_tokens, min_order=1, max_order=4)
+        ref_len = get_closest_len(len(hyp_tokens), ref_stats.lens)
+
+        correct = [0] * 4
+        total = [0] * 4
+        for ngram, count in hyp_ngram_counts.items():
+            n = len(ngram) - 1
+            total[n] += count
+            if ngram in ref_stats.ngrams:
+                correct[n] += min(count, ref_stats.ngrams[ngram])
+
+        return cls(
+            hyp_len=len(hyp_tokens),
+            ref_len=ref_len,
+            correct=correct,
+            total=total,
+        )
+
+    def __add__(self, other) -> Self:
+        if not isinstance(other, HypothesisStats):
+            return NotImplemented
+
+        return self.__class__(
+            hyp_len=self.hyp_len + other.hyp_len,
+            ref_len=self.ref_len + other.ref_len,
+            correct=list(map(operator.add, self.correct, other.correct)),
+            total=list(map(operator.add, self.total, other.total)),
+        )
+
+    def __radd__(self, other) -> Self:
+        return self + other
 
 
 @dataclass
