@@ -98,6 +98,10 @@ class BLEUScore:
     def __post_init__(self) -> None:
         precisions_str = "/".join(f"{p:.1f}" for p in self.precisions)
         ratio = self.hyp_len / self.ref_len
+        if self.hyp_len > self.ref_len:
+            ratio = 1.0
+        else:
+            ratio = self.ref_len / self.hyp_len
         self.verbose = (
             f"{precisions_str} (BP = {self.bp:.3f}, "
             f"ratio = {ratio:.3f}, hyp_len = {self.hyp_len}, ref_len = {self.ref_len})"
