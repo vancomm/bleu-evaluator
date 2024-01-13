@@ -30,7 +30,7 @@ def word_tokenize(sentence: str, *, casefold: bool = True) -> list[str]:
     ]
 
 
-def extract_ngrams(
+def count_ngrams(
     tokens: Sequence[str], min_order: int, max_order: int
 ) -> Counter[tuple[str, ...]]:
     ngrams = (

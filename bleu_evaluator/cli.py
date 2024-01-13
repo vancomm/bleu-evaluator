@@ -6,7 +6,7 @@ import click
 
 from .read import get_reader
 from .bleu import BLEU
-from .log import setup_base_logging, LOG_FORMATS, setup_file_logging
+from .log import LOG_FORMATS, setup_file_logging
 
 
 logger = logging.getLogger(__name__)
