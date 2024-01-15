@@ -49,14 +49,26 @@ Usage: bleu [OPTIONS]
   missing data interactively. Alternatively, supply -i option to force
   interactive prompt regardless of other options.
 
+  Files with references and hypotheses can be detected automatically by
+  specifying a DIRECTORY (or several) via -d option. Detection rules:
+
+    - all files in DIRECTORY that start with "ref_" are considered to be
+    REFERENCE files;
+
+    - all files in DIRECTORY that start with "hyp_" are considered to be
+    HYPOTHESIS files.
+
 Options:
   -r, --reference FILE   A file containing REFERENCE corpus. May be specified
                          multiple times.
   -h, --hypothesis FILE  A file containing HYPOTHESIS corpora. May be
                          specified multiple times.
+  -d, --dir DIRECTORY    A directory containing REFERENCE and/or HYPOTHESIS
+                         corpora. May be specified multiple times.
   -i, --interactive      Force interactive prompting of references and
                          hypotheses.
-  -v, --verbose          Verbosity level. May be repeated 1-3 times to
-                         increase verbosity.
+  -l, --log-file PATH    A file to write logs to.
+  -D, --debug            Include debugging information in logs.
+  --version              Show the version and exit.
   --help                 Show this message and exit.
 ```
