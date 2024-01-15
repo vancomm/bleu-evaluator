@@ -6,8 +6,8 @@ import click
 
 from .read import get_reader
 from .scan import scan_directory
-from .bleu import BLEU
-from .log import LOG_FORMATS, setup_stream_logging, setup_file_logging
+from .bleu import BLEU, BLEUScore
+from .log import LOG_FORMATS, setup_file_logging
 
 
 logger = logging.getLogger(__name__)
@@ -52,9 +52,9 @@ logger = logging.getLogger(__name__)
     type=click.Path(exists=False, path_type=Path),
 )
 @click.option(
-    "-v",
-    "--verbose",
-    help="Increase logging verbosity.",
+    "-D",
+    "--debug",
+    help="Include debugging information in logs.",
     is_flag=True,
     default=False,
 )
@@ -63,7 +63,7 @@ def cli(
     reference_files: tuple[Path, ...],
     hypothesis_files: tuple[Path, ...],
     directories: tuple[Path, ...],
-    verbose: bool,
+    debug: bool,
     log_file: Path | None,
     interactive: bool,
 ) -> None:
@@ -91,11 +91,12 @@ def cli(
     """
     start = time.perf_counter()
 
-    # setup_stream_logging(level=log_level, format=log_format)
+    root = logging.getLogger()
+    log_level = logging.DEBUG if debug else logging.INFO
+    root.setLevel(log_level)
+
     if log_file:
-        log_level = logging.DEBUG if verbose else logging.INFO
-        log_format_key = "debug" if verbose else "default"
-        log_format = LOG_FORMATS[log_format_key]
+        log_format = LOG_FORMATS["debug" if debug else "default"]
         setup_file_logging(logfile=log_file, level=log_level, format=log_format)
 
     logger.info("CLI invoked")
@@ -115,6 +116,7 @@ def cli(
                     "These will be appended to the list of references.",
                 )
             )
+
         if _hypothesis_files:
             click.echo(
                 "Detected hypothesis files:\n%s\n%s"
@@ -154,14 +156,14 @@ def cli(
     logger.debug(f"{hypotheses = }")
 
     calc_start = time.perf_counter()
-    logging.info("BLEU calculation initiated")
 
     bleu = BLEU(references)
+    scores = list[BLEUScore]()
 
     for hypothesis in hypotheses:
         try:
             score = bleu.corpus_score(hypothesis)
-            click.echo(score.format(verbose=True))
+            scores.append(score)
         except click.ClickException as e:
             logger.error(e)
             raise e
@@ -169,12 +171,31 @@ def cli(
             logger.error(e)
             raise click.ClickException(str(e))
 
-    logging.info("BLEU calculation complete")
+    stats_start = time.perf_counter()
+
+    tokens_per_file = list[int](map(sum, zip(*(c.lens for c in bleu.ref_cache))))
+    for file, token_count in zip(reference_files, tokens_per_file):
+        symbol_count = len(file.read_text())
+        logger.info(f"Stats for file {file}: {symbol_count = }, {token_count = }")
+
+    for file, score in zip(hypothesis_files, scores):
+        symbol_count = len(file.read_text())
+        token_count = score.total[0]
+        logger.info(f"Stats for file {file}: {symbol_count = }, {token_count = }")
+
+    output_start = time.perf_counter()
+
+    for score in scores:
+        formatted = score.format(verbose=True)
+        click.echo(formatted)
+        logger.info(formatted)
 
     end = time.perf_counter()
+
     logger.info(
         f"Program workflow complete; "
-        f"time reading input = {calc_start - start:.3f}ms, "
-        f"time of calculation = {end - calc_start:.3f}ms, "
-        f"total time elapsed = {end - start:.3f}ms"
+        f"read input in {calc_start - start:.3f}ms, "
+        f"calculated BLEU in {stats_start - calc_start:.3f}ms, "
+        f"gathered stats in {output_start - stats_start:.3f}ms, "
+        f"total time elapsed: {end - start:.3f}ms"
     )

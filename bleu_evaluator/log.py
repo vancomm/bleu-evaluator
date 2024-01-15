@@ -30,12 +30,12 @@ def setup_stream_logging(
     capture_warnings: bool = True,
 ) -> None:
     logging.captureWarnings(capture=capture_warnings)
+
     root = logging.getLogger()
-    if level is not None:
-        root.setLevel(level)
 
     formatter = logging.Formatter(format)
     formatter.formatTime = format_logging_time  # type: ignore[method-assign]
+
     handler = logging.StreamHandler(stream)
     handler.setFormatter(formatter)
 
@@ -49,7 +49,10 @@ def setup_file_logging(
     format: str = LOG_FORMATS["default"],
     backup_count: int = 10,
     max_bytes: int = 1 * 1024 * 1024,
+    capture_warnings: bool = True,
 ) -> None:
+    logging.captureWarnings(capture=capture_warnings)
+
     root = logging.getLogger()
 
     handler = RotatingFileHandler(
