@@ -1,12 +1,13 @@
 import time
 import logging
-import pathlib
+from pathlib import Path
 
 import click
 
 from .read import get_reader
+from .scan import scan_directory
 from .bleu import BLEU
-from .log import LOG_FORMATS, setup_file_logging
+from .log import LOG_FORMATS, setup_stream_logging, setup_file_logging
 
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
     "--reference",
     "reference_files",
     help="A file containing REFERENCE corpus. May be specified multiple times.",
-    type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
     multiple=True,
 )
 @click.option(
@@ -26,7 +27,15 @@ logger = logging.getLogger(__name__)
     "--hypothesis",
     "hypothesis_files",
     help="A file containing HYPOTHESIS corpora. May be specified multiple times.",
-    type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+)
+@click.option(
+    "-d",
+    "--dir",
+    "directories",
+    help="A directory containing REFERENCE and/or HYPOTHESIS corpora. May be specified multiple times.",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
     multiple=True,
 )
 @click.option(
@@ -40,45 +49,83 @@ logger = logging.getLogger(__name__)
     "-l",
     "--log-file",
     help="A file to write logs to.",
-    type=click.Path(exists=False, path_type=pathlib.Path),
+    type=click.Path(exists=False, path_type=Path),
 )
 @click.option(
     "-v",
     "--verbose",
-    "verbose",
     help="Increase logging verbosity.",
+    is_flag=True,
+    default=False,
 )
 @click.version_option(message="%(version)s")
 def cli(
-    reference_files: tuple[pathlib.Path],
-    hypothesis_files: tuple[pathlib.Path],
+    reference_files: tuple[Path, ...],
+    hypothesis_files: tuple[Path, ...],
+    directories: tuple[Path, ...],
     verbose: bool,
-    log_file: pathlib.Path | None,
+    log_file: Path | None,
     interactive: bool,
 ) -> None:
     """
-    Calculate BLEU score for each hypothesis in HYPOTHESIS file(s) using references
-    found in REFERENCE file(s). One file may specify several references or
-    hypotheses by delimiting items with empty lines.
+    Calculate BLEU score for each hypothesis in HYPOTHESIS file(s) using
+    references found in REFERENCE file(s). One file may specify several
+    references or hypotheses by delimiting items with empty lines.
 
     Supported file formats: txt, doc, docx, pdf. Files with other extensions
     will be treated as UTF-8 text.
 
-    You can also supply references and hypotheses in interactive mode by invoking the
-    script without -r or -h options. You will be prompted for missing data
-    interactively. Alternatively, supply -i option to force interactive prompt
-    regardless of other options.
-    """
+    You can also supply references and hypotheses in interactive mode by
+    invoking the script without -r or -h options. You will be prompted for
+    missing data interactively. Alternatively, supply -i option to force
+    interactive prompt regardless of other options.
 
+    Files with references and hypotheses can be detected automatically by
+    specifying a DIRECTORY (or several) via -d option. Detection rules:
+
+      - all files in DIRECTORY that start with "ref_" are considered to be
+        REFERENCE files;
+
+      - all files in DIRECTORY that start with "hyp_" are considered to be
+        HYPOTHESIS files.
+    """
+    start = time.perf_counter()
+
+    # setup_stream_logging(level=log_level, format=log_format)
     if log_file:
         log_level = logging.DEBUG if verbose else logging.INFO
-        log_format = "debug" if verbose else "default"
-        setup_file_logging(
-            logfile=log_file, level=log_level, format=LOG_FORMATS[log_format]
-        )
+        log_format_key = "debug" if verbose else "default"
+        log_format = LOG_FORMATS[log_format_key]
+        setup_file_logging(logfile=log_file, level=log_level, format=log_format)
 
-    start = time.perf_counter()
     logger.info("CLI invoked")
+
+    if directories:
+        if len(directories) == 1:
+            _reference_files, _hypothesis_files = scan_directory(directories[0])
+        else:
+            _files: zip[tuple[Path, ...]] = zip(*map(scan_directory, set(directories)))
+            _reference_files, _hypothesis_files = _files
+
+        if _reference_files:
+            click.echo(
+                "Detected reference files:\n%s\n%s"
+                % (
+                    "\n".join(f"- {file}" for file in _reference_files),
+                    "These will be appended to the list of references.",
+                )
+            )
+        if _hypothesis_files:
+            click.echo(
+                "Detected hypothesis files:\n%s\n%s"
+                % (
+                    "\n".join(f"- {file}" for file in _hypothesis_files),
+                    "These will be appended to the list of hypotheses.",
+                )
+            )
+
+        reference_files = (*reference_files, *_reference_files)
+        hypothesis_files = (*hypothesis_files, *_hypothesis_files)
 
     references = [get_reader(file).read_all() for file in reference_files]
     hypotheses = [get_reader(file).read_all() for file in hypothesis_files]
@@ -106,6 +153,7 @@ def cli(
     logger.debug(f"{references = }")
     logger.debug(f"{hypotheses = }")
 
+    calc_start = time.perf_counter()
     logging.info("BLEU calculation initiated")
 
     bleu = BLEU(references)
@@ -124,4 +172,9 @@ def cli(
     logging.info("BLEU calculation complete")
 
     end = time.perf_counter()
-    logger.info(f"CLI workflow complete, time elapsed = {end - start:.3f}ms")
+    logger.info(
+        f"Program workflow complete; "
+        f"time reading input = {calc_start - start:.3f}ms, "
+        f"time of calculation = {end - calc_start:.3f}ms, "
+        f"total time elapsed = {end - start:.3f}ms"
+    )

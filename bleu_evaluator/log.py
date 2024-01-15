@@ -1,3 +1,4 @@
+import sys
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -21,14 +22,24 @@ def format_logging_time(
     )
 
 
-def setup_base_logging(
-    *, level: int | str = logging.INFO, format: str = LOG_FORMATS["default"]
+def setup_stream_logging(
+    *,
+    stream=sys.stderr,
+    level: int | str | None = None,
+    format: str = LOG_FORMATS["default"],
+    capture_warnings: bool = True,
 ) -> None:
-    logging.captureWarnings(capture=True)
-    logging.basicConfig(level=level, format=format)
-    logging.Formatter.formatTime = (  # type: ignore[method-assign]
-        lambda self, record, datefmt=None: format_logging_time(record, datefmt)
-    )
+    logging.captureWarnings(capture=capture_warnings)
+    root = logging.getLogger()
+    if level is not None:
+        root.setLevel(level)
+
+    formatter = logging.Formatter(format)
+    formatter.formatTime = format_logging_time  # type: ignore[method-assign]
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(formatter)
+
+    root.addHandler(handler)
 
 
 def setup_file_logging(
@@ -39,7 +50,9 @@ def setup_file_logging(
     backup_count: int = 10,
     max_bytes: int = 1 * 1024 * 1024,
 ) -> None:
-    fh = RotatingFileHandler(
+    root = logging.getLogger()
+
+    handler = RotatingFileHandler(
         logfile,
         maxBytes=max_bytes,
         backupCount=backup_count,
@@ -48,7 +61,7 @@ def setup_file_logging(
     formatter = logging.Formatter(format)
     formatter.formatTime = format_logging_time  # type: ignore[method-assign]
 
-    fh.setLevel(level)
-    fh.setFormatter(formatter)
+    handler.setLevel(level)
+    handler.setFormatter(formatter)
 
-    logging.getLogger().addHandler(fh)
+    root.addHandler(handler)
