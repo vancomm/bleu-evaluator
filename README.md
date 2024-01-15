@@ -68,6 +68,7 @@ Options:
   -i, --interactive      Force interactive prompting of references and
                          hypotheses.
   -l, --log-file PATH    A file to write logs to.
+  -v, --verbose          Enable logging to console.
   -D, --debug            Include debugging information in logs.
   --version              Show the version and exit.
   --help                 Show this message and exit.

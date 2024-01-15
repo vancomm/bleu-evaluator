@@ -7,7 +7,7 @@ import click
 from .read import get_reader
 from .scan import scan_directory
 from .bleu import BLEU, BLEUScore
-from .log import LOG_FORMATS, setup_file_logging
+from .log import LOG_FORMATS, setup_file_logging, setup_stream_logging
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,13 @@ logger = logging.getLogger(__name__)
     type=click.Path(exists=False, path_type=Path),
 )
 @click.option(
+    "-v",
+    "--verbose",
+    help="Enable logging to console.",
+    is_flag=True,
+    default=False,
+)
+@click.option(
     "-D",
     "--debug",
     help="Include debugging information in logs.",
@@ -63,9 +70,10 @@ def cli(
     reference_files: tuple[Path, ...],
     hypothesis_files: tuple[Path, ...],
     directories: tuple[Path, ...],
-    debug: bool,
-    log_file: Path | None,
     interactive: bool,
+    log_file: Path | None,
+    verbose: bool,
+    debug: bool,
 ) -> None:
     """
     Calculate BLEU score for each hypothesis in HYPOTHESIS file(s) using
@@ -94,6 +102,9 @@ def cli(
     root = logging.getLogger()
     log_level = logging.DEBUG if debug else logging.INFO
     root.setLevel(log_level)
+
+    if verbose:
+        setup_stream_logging(level=log_level, format=LOG_FORMATS["short"])
 
     if log_file:
         log_format = LOG_FORMATS["debug" if debug else "default"]

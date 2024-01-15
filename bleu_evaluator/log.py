@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 LOG_FORMATS = {
     "default": "%(asctime)s | %(levelname)s: %(message)s",
     "debug": "%(asctime)s | %(levelname)s: %(message)s @ %(name)s/%(funcName)s:%(lineno)d",
+    "short": "%(levelname)s: %(message)s",
 }
 
 
