@@ -97,7 +97,7 @@ def cli(
       - all files in DIRECTORY that start with "hyp_" are considered to be
         HYPOTHESIS files.
     """
-    start = time.perf_counter()
+    start = time.perf_counter_ns()
 
     root = logging.getLogger()
     log_level = logging.DEBUG if debug else logging.INFO
@@ -166,7 +166,7 @@ def cli(
     logger.debug(f"{references = }")
     logger.debug(f"{hypotheses = }")
 
-    calc_start = time.perf_counter()
+    calc_start = time.perf_counter_ns()
 
     bleu = BLEU(references)
     scores = list[BLEUScore]()
@@ -182,7 +182,7 @@ def cli(
             logger.error(e)
             raise click.ClickException(str(e))
 
-    stats_start = time.perf_counter()
+    stats_start = time.perf_counter_ns()
 
     tokens_per_file = list[int](map(sum, zip(*(c.lens for c in bleu.ref_cache))))
     for file, token_count in zip(reference_files, tokens_per_file):
@@ -194,19 +194,19 @@ def cli(
         token_count = score.total[0]
         logger.info(f"Stats for file {file}: {symbol_count = }, {token_count = }")
 
-    output_start = time.perf_counter()
+    output_start = time.perf_counter_ns()
 
     for score in scores:
         formatted = score.format(verbose=True)
         click.echo(formatted)
         logger.info(formatted)
 
-    end = time.perf_counter()
+    end = time.perf_counter_ns()
 
     logger.info(
         f"Program workflow complete; "
-        f"read input in {calc_start - start:.3f}ms, "
-        f"calculated BLEU in {stats_start - calc_start:.3f}ms, "
-        f"gathered stats in {output_start - stats_start:.3f}ms, "
-        f"total time elapsed: {end - start:.3f}ms"
+        f"read input in {(calc_start - start)/1e6:.3f}ms, "
+        f"calculated BLEU in {(stats_start - calc_start)/1e6:.3f}ms, "
+        f"gathered stats in {(output_start - stats_start)/1e6:.3f}ms, "
+        f"total time elapsed: {(end - start)/1e6:.3f}ms"
     )
