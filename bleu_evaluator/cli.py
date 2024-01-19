@@ -120,22 +120,26 @@ def cli(
             _reference_files, _hypothesis_files = _files
 
         if _reference_files:
-            click.echo(
-                "Detected reference files:\n%s\n%s"
-                % (
-                    "\n".join(f"- {file}" for file in _reference_files),
+            message = "Detected reference files:\n%s" % "\n".join(
+                f"- {file}" for file in _reference_files
+            )
+            if reference_files:
+                message = "%s\n%s" % (
+                    message,
                     "These will be appended to the list of references.",
                 )
-            )
+            click.echo(message)
 
         if _hypothesis_files:
-            click.echo(
-                "Detected hypothesis files:\n%s\n%s"
-                % (
-                    "\n".join(f"- {file}" for file in _hypothesis_files),
+            message = "Detected hypothesis files:\n%s" % "\n".join(
+                f"- {file}" for file in _hypothesis_files
+            )
+            if hypothesis_files:
+                message = "%s\n%s" % (
+                    message,
                     "These will be appended to the list of hypotheses.",
                 )
-            )
+            click.echo(message)
 
         reference_files = (*reference_files, *_reference_files)
         hypothesis_files = (*hypothesis_files, *_hypothesis_files)
@@ -175,12 +179,9 @@ def cli(
         try:
             score = bleu.corpus_score(hypothesis)
             scores.append(score)
-        except click.ClickException as e:
-            logger.error(e)
-            raise e
         except Exception as e:
             logger.error(e)
-            raise click.ClickException(str(e))
+            exit(1)
 
     stats_start = time.perf_counter_ns()
 
